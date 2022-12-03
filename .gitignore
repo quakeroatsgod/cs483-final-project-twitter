@@ -127,3 +127,8 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+#Stuff that I added
+csv/*
+out.txt
+only_text.txt
