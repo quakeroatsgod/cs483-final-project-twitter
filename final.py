@@ -18,18 +18,34 @@ class Preprocessor( BaseEstimator, TransformerMixin ):
         def drop_newline( t ): return re.sub( '\n', ' ', t )
         #Remove Hyperlinks and the single case of "http" but no link
         def drop_hyperlinks( t ): return re.sub(r"http?://[^ ]*|https?://[^ ]*|http", '', t)        
-        #Remove hyphens, quotations
-        def drop_extra_punctuation( t ): return re.sub( r"\'|\-", '', t )        
-        def spacify_non_letter_or_digit( t ): return re.sub( '\W', ' ', t )        
+        #Removes hyphens, double quotations, commas, pound signs, periods and turns them into spaces
+        def drop_extra_punctuation( t ): return re.sub( r"\"|\-|\,|\#|\.|\;[^;()]|\:[^:()]", ' ', t )   
+        #Removes single quotations. Words like "I'm" will become "im"
+        def drop_quotations(t): return re.sub(r"\'","",t)
+        #Removes $, <, >, =, +, etc.
+        def drop_special_characters(t): return re.sub(r"[\<\>\=\_\{\}\[\]\'\*\^\&\%\$\|\/\\]",' ',t)
+        #Remove @username
+        def drop_mentions(t): return re.sub(r"@[^ ]*", '',t)
+        #Adds a space before ?
+        def spacify_question_mark( t ): return re.sub('\?', ' ?', t )
+        #Adds a space before !
+        def spacify_exclamation_point( t ): return re.sub('\!', ' !', t )        
         def combine_spaces( t ): return re.sub( '\s+', ' ', t )
-        def combine_numbers( t ): return re.sub( r'[0-0] [0-9]', '', t )
-        transformed = xs.str.lower()         
-        transformed = transformed.apply(drop_hyperlinks)
-        transformed = transformed.apply( drop_newline )  
-        transformed = transformed.apply( drop_extra_punctuation )        
-        transformed = transformed.apply( spacify_non_letter_or_digit )        
-        transformed = transformed.apply( combine_spaces ) #optional
-        transformed = transformed.apply( combine_numbers )
+        #Cut down any repeating characters of 3 or more (like aaaaa) is reduced to length 2 (aa)
+        def reduce_extra_characters( t ): return re.sub( r"(.)(\1{1})(\1+)", r"\1\2", t )
+        # def reduce_extra_characters(t): return re.sub(r"",'',t)
+        transformed = xs.str.lower()              \
+            .apply(drop_hyperlinks)               \
+            .apply(drop_mentions)                 \
+            .apply(drop_newline)                  \
+            .apply(reduce_extra_characters)       \
+            .apply(drop_extra_punctuation)        \
+            .apply(drop_quotations)               \
+            .apply(drop_special_characters)       \
+            .apply(spacify_question_mark)         \
+            .apply(spacify_exclamation_point)     \
+            .apply(combine_spaces)                \
+            .str.strip()
         return transformed
 
 def main():
