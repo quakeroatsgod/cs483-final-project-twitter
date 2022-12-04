@@ -11,9 +11,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.base import TransformerMixin, BaseEstimator
-from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import GridSearchCV
 
 class Preprocessor( BaseEstimator, TransformerMixin ):    
     def fit( self, xs, ys = None ): return self    
@@ -66,36 +64,41 @@ class SelectColumns(BaseEstimator, TransformerMixin):
 
 
 def main():
-    data=pd.read_csv("./csv/train.csv")    
+    data=pd.read_csv("./csv/train.csv")
+    testData=pd.read_csv("./csv/test.csv")
+    testData.drop(columns = ['keyword', 'location'])     
     ys=data['disaster']
     xs=data.drop(columns = ['disaster'])
 
     # use this instead of 'english' when testing if certain SWs improve performance
     ourStopWords = ['the', 'a', 'an', 'that']
-
-    
+    '''
     gridSelect = {
-        'column_select__columns': [['keyword', 'location', 'text']]
+        'column_select__columns': [
+            ['keyword', 'location', 'text'],
+        ]
+    }
+    '''
+
+    gridVectorParameters = {
+        'vectorize__strip_accents' : [None, "unicode"],
+        'vectorize__stop_words' : ["english", ourStopWords],
+        'vectorize__ngram_range' : [(1, 1), (1,3)],
+        'vectorize__max_df': [.5, 1]
+        'vectorize__min_df': [.1, 1]
     }
 
     # tree => n_estimators=num trees in forest (100 def), max_depth of each tree (none by def)
     gridForestParameters = {
-        "max_depth" : [2, 10, 20, 50],
-        "max_features" : ["log2", "sqrt"], # num fs to consider when looking for best split. Def sqrt
-        "n_estimators" : [50, 100]
+        'forest__max_depth' : [2, 4],
+        'forest__max_features' : ["log2", "sqrt"], # num fs to consider when looking for best split. Def sqrt
+        'forest__n_estimators' : [50]
     }
 
-
-    gridVectorParameters = {
-        "strip_accents" : [None, "unicode", "ascii"],
-        "stop_words" : ["english", ourStopWords],
-        "ngram_range" : [(1, 1), (1, 3), (1, 4)]
-    }
-
-    params = [gridSelect, gridVectorParameters, gridForestParameters]
+    params = [gridVectorParameters, gridForestParameters]
 
     steps=[
-        ('column_select', SelectColumns('column_select__columns')),
+        ('column_select', SelectColumns('text')),
         ('preprocess', Preprocessor()),
         ('vectorize', CountVectorizer()),
         ('forest', RandomForestClassifier())
@@ -103,16 +106,21 @@ def main():
 
     print("\nFiltered\n")
     pipe=Pipeline(steps)
-    search=GridSearchCV(pipe, params, n_jobs=-1)
-    pipe.fit(xs,ys)
-    #print(search.best_score_)
-    #print(search.best_estimator_)
+    search=GridSearchCV(pipe, params, scoring='accuracy', n_jobs=-1)
+    search.fit(xs,ys)
+    print(search.best_score_)
+    print(search.best_estimator_)
+
+    print(search.best_params_)
+    print(search.predict(testData))
+
+    '''
     with pd.option_context('display.max_rows', None,
         'display.max_columns', None,
         'display.width', None):
         # print(data['text'].to_csv())
         print(pipe.transform(data['text']).to_csv())
-    
+    '''
 main()
 
 
