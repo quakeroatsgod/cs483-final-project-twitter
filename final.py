@@ -2,17 +2,19 @@
 import pandas as pd
 import numpy as np
 import re
+import sys
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import r2_score
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import train_test_split
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import MultinomialNB
 
+#Class that cleans up and prepares the tweet text in the pipeline for the count vectorizer
 class Preprocessor( BaseEstimator, TransformerMixin ):    
     def fit( self, xs, ys = None ): return self    
     def transform( self, xs ):        
@@ -66,6 +68,7 @@ class SelectColumns(BaseEstimator, TransformerMixin):
 def main():
     data=pd.read_csv("./csv/train.csv")
     testData=pd.read_csv("./csv/test.csv")
+    submission_df=pd.read_csv("./csv/sample_submission.csv")
     testData.drop(columns = ['keyword', 'location'])     
     ys=data['disaster']
     xs=data.drop(columns = ['disaster'])
@@ -80,40 +83,34 @@ def main():
     }
     '''
 
-    gridVectorParameters = {
-        'vectorize__strip_accents' : [None, "unicode"],
-        'vectorize__stop_words' : ["english", ourStopWords],
-        'vectorize__ngram_range' : [(1, 1), (1,3)],
-        'vectorize__max_df': [.5, 1]
-        'vectorize__min_df': [.1, 1]
-    }
+    grid_params = {
+        'vectorize__strip_accents' : ["unicode"],
+        'vectorize__stop_words' : ["english"],
+        'vectorize__ngram_range' : [(1,1),(1,2),(1,3),(1,4),(1,5)],
+        'vectorize__max_features': [None,10000,20000,50000],
+        'vectorize__max_df': [.8, 1],
+        'nb__alpha': [0.1,1.0, 2.0, 3.0, 4.0,5.0,6.0,10.0],
 
-    # tree => n_estimators=num trees in forest (100 def), max_depth of each tree (none by def)
-    gridForestParameters = {
-        'forest__max_depth' : [2, 4],
-        'forest__max_features' : ["log2", "sqrt"], # num fs to consider when looking for best split. Def sqrt
-        'forest__n_estimators' : [50]
     }
-
-    params = [gridVectorParameters, gridForestParameters]
 
     steps=[
         ('column_select', SelectColumns('text')),
         ('preprocess', Preprocessor()),
         ('vectorize', CountVectorizer()),
-        ('forest', RandomForestClassifier())
+        ('nb', MultinomialNB())
     ]
 
-    print("\nFiltered\n")
+    print("Processing...",file=sys.stderr)
     pipe=Pipeline(steps)
-    search=GridSearchCV(pipe, params, scoring='accuracy', n_jobs=-1)
+    search=GridSearchCV(pipe, grid_params, scoring='accuracy', n_jobs=-1)
     search.fit(xs,ys)
     print(search.best_score_)
     print(search.best_estimator_)
-
     print(search.best_params_)
-    print(search.predict(testData))
-
+    #Prepare predictions for kaggle submission
+    submission_df['target']=search.predict(testData).tolist()
+    print(submission_df.drop(columns=["Target"]).to_csv(index=False))
+    print("Done!",file=sys.stderr)
     '''
     with pd.option_context('display.max_rows', None,
         'display.max_columns', None,
