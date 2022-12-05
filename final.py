@@ -6,10 +6,8 @@ import sys
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import r2_score
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import GridSearchCV
 from sklearn.compose import TransformedTargetRegressor
-from sklearn.ensemble import RandomForestRegressor
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import MultinomialNB
@@ -87,10 +85,9 @@ def main():
         'vectorize__strip_accents' : ["unicode"],
         'vectorize__stop_words' : ["english"],
         'vectorize__ngram_range' : [(1,1),(1,2),(1,3),(1,4),(1,5)],
-        'vectorize__max_features': [None,10000,20000,50000],
-        'vectorize__max_df': [.8, 1],
-        'nb__alpha': [0.1,1.0, 2.0, 3.0, 4.0,5.0,6.0,10.0],
-
+        'vectorize__max_features': [20000,50000,75000,100000],
+        'vectorize__max_df': [0.5,0.6,0.7,.8, 1],
+        'nb__alpha': [4.0,5.0,6.0,10.0],
     }
 
     steps=[
@@ -102,7 +99,7 @@ def main():
 
     print("Processing...",file=sys.stderr)
     pipe=Pipeline(steps)
-    search=GridSearchCV(pipe, grid_params, scoring='accuracy', n_jobs=-1)
+    search=GridSearchCV(pipe, grid_params, scoring='accuracy', n_jobs=-1, cv=5)
     search.fit(xs,ys)
     print(search.best_score_)
     print(search.best_estimator_)
